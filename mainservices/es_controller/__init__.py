@@ -1,0 +1,1 @@
+# Elasticsearch controller package marker.

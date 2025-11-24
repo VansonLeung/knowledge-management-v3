@@ -1,0 +1,2 @@
+elasticsearch>=8.13.0,<9
+requests>=2.31.0
