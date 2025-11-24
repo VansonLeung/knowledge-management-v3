@@ -187,6 +187,7 @@ def parse_args():
 
 
 DEFAULT_QUESTIONS = [
+    "What to complete by May 2026?",
     "What are the main functions and features described?",
     "Who is the target audience?",
     "What events are mentioned?",
