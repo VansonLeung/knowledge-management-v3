@@ -1,0 +1,123 @@
+version: "2.4"
+
+# Single-node Elasticsearch setup (use for local development/testing)
+# - Runs a single node set to discovery.type=single-node
+# - Uses smaller heap & container memory defaults (adjust via env)
+# - Writes logs to ./logs/ so you can investigate crashes
+# - Adds restart policy and ulimits to reduce transient failure risk
+# - Requires the local `analysis-ik-8.11.3` folder to be present next to this compose file
+
+services:
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+      - config-analysis-ik:/usr/share/elasticsearch/config/analysis-ik
+      - plugins:/usr/share/elasticsearch/plugins
+      - ./analysis-ik-8.11.3:/usr/share/elasticsearch/plugins/analysis-ik
+    user: "0"
+    command: >
+      bash -c '
+
+        echo "Preparing local analysis-ik plugin"
+        chmod -R 755 /usr/share/elasticsearch/bin
+        chmod -R 755 /usr/share/elasticsearch/jdk/bin/java
+
+        echo "Setting config permissions"
+        chmod -R 755 /usr/share/elasticsearch/config
+
+        echo "Setting plugins permissions"
+        chmod -R 755 /usr/share/elasticsearch/plugins
+
+        if [ ! -d /usr/share/elasticsearch/plugins/analysis-ik ]; then
+          echo "ERROR: Local analysis-ik plugin folder not mounted at /usr/share/elasticsearch/plugins/analysis-ik";
+          echo "Ensure ./analysis-ik-8.11.3 exists next to the compose file and try again.";
+          exit 1;
+        fi;
+        chmod -R 755 /usr/share/elasticsearch/plugins/analysis-ik || true;
+        echo "Setting plugins -> rm .DS_STORE";
+        rm -f /usr/share/elasticsearch/plugins/.DS_STORE || true;
+        rm -f /usr/share/elasticsearch/plugins/analysis-ik/.DS_STORE || true;
+        echo "Listing plugin files";
+        ls -la /usr/share/elasticsearch/plugins || true;
+        echo "Plugin list:";
+        bin/elasticsearch-plugin list || true;
+        echo "Setup complete";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -d /usr/share/elasticsearch/plugins/analysis-ik ] || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    container_name: es-single
+    environment:
+      - node.name=es-single
+      - cluster.name=${CLUSTER_NAME}-single
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    mem_limit: ${MEM_LIMIT_SINGLE:-2147483648}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    ports:
+      - "${ES_PORT}:9200"
+    volumes:
+      - esdata_single:/usr/share/elasticsearch/data
+      - ./logs/elasticsearch:/usr/share/elasticsearch/logs
+      - ./analysis-ik-8.11.3:/usr/share/elasticsearch/plugins/analysis-ik
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'status' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # Optional Kibana - uncomment if you want Kibana locally
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+  #   container_name: kibana-single
+  #   depends_on:
+  #     - elasticsearch
+  #   environment:
+  #     - SERVERNAME=kibana
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #     - ELASTICSEARCH_USERNAME=kibana_system
+  #     - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
+  #     - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY:-aaaaaaaa-c4d3-4a0a-8290-2abcb83ab3aa}
+  #   ports:
+  #     - "${KIBANA_PORT}:5601"
+  #   mem_limit: ${KIBANA_MEM_LIMIT:-2147483648}
+  #   volumes:
+  #     - ./logs/kibana:/usr/share/kibana/logs
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 200' || exit 1"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 10
+
+volumes:
+  esdata_single:
+    driver: local
+  certs:
+    driver: local
+  config-analysis-ik:
+    driver: local
+  plugins:
+    driver: local
+
+# Notes:
+# - On macOS (Docker Desktop), ensure the VM has enough RAM (minimum 2GB recommended) and 'vm.max_map_count' is set to 262144 on Linux hosts.
+# - When using 'bootstrap.memory_lock=true', memory locking requires enough privilege and you may also need to disable swap, or adjust Docker/OS settings accordingly.
+# - For production, prefer dedicated master/data node separation and hosting nodes on different hosts for true HA.
