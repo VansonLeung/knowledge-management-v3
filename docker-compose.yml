@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+
+  pymupdf_service:
+    build:
+      context: .
+      target: pymupdf_service
+    restart: unless-stopped
+    ports:
+      - "16002:16002"
+    depends_on:
+      - elasticsearch
+
+  chunking_service:
+    build:
+      context: .
+      target: chunking_service
+    restart: unless-stopped
+    ports:
+      - "16006:16006"
+    depends_on:
+      - elasticsearch
+
+  openai_embedding_client_service:
+    build:
+      context: .
+      target: openai_embedding_client_service
+    restart: unless-stopped
+    ports:
+      - "16003:16003"
+    environment:
+      OPENAI_API_BASE: ${OPENAI_API_BASE:-http://host.docker.internal:18000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EMBED_MODEL: ${OPENAI_EMBED_MODEL:-moka-ai/m3e-base}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
+
+  openai_llm_client_service:
+    build:
+      context: .
+      target: openai_llm_client_service
+    restart: unless-stopped
+    ports:
+      - "16004:16004"
+    environment:
+      OPENAI_API_BASE: ${OPENAI_API_BASE:-http://host.docker.internal:18000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_LLM_MODEL: ${OPENAI_LLM_MODEL:-Qwen3-4B-Instruct-2507-4bit}
+      OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
+
+volumes:
+  es-data:

@@ -34,6 +34,23 @@ python microservices/openai_llm_client_service/main.py
 # ensure Elasticsearch is running at http://localhost:9200 (elastic/octopuspass if secured)
 ```
 
+## Dockerized stack
+1. Build and start everything (pymupdf, chunking, embedding proxy, LLM proxy, and Elasticsearch) with Docker Compose:
+  ```bash
+  docker compose up --build
+  ```
+  Add `-d` to run in the background. Stop everything with `docker compose down` (include `-v` to drop the Elasticsearch volume).
+2. Configure upstream LLM/embedding access via environment variables (either an `.env` file or inline when invoking Compose):
+  - `OPENAI_API_BASE` (default `http://host.docker.internal:18000/v1` so the containers can reach a host-local API)
+  - `OPENAI_API_KEY` (optional, forwarded to both proxy services)
+  - `OPENAI_EMBED_MODEL`, `OPENAI_LLM_MODEL`, `OPENAI_TIMEOUT`
+3. The containers expose the same ports described above (`16002`, `16003`, `16004`, `16006`, `9200`), so local workflows keep working without code changes.
+
+> **Note:** On Linux you may need to replace `host.docker.internal` with the host IP address or add it manually (e.g., `--add-host=host.docker.internal:host-gateway`).
+
+### Running CLI workflows against Docker services
+You can continue to execute the ingestion/search workflows from your host Python environment; they will call into the containerized services the same way as the locally started processes. Ensure your virtualenv has the `mainservices/es_controller` requirements installed, then run the commands from the "Workflows" section.
+
 ## Workflows
 - **Ingest PDF to ES:**  
   `python -m mainservices.workflows.ingest_workflow.py --pdf references/Functions_and_Features_-_Overall_summary_V4\ (1).pdf --index a-001`
