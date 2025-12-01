@@ -1,5 +1,32 @@
+"""OpenAI Embedding Client Service.
+
+Supports .env files:
+    - Project root .env (loaded first)
+    - Service-level .env (overrides project root)
+"""
+
 import os
+from pathlib import Path
 from typing import List, Optional, Union
+
+# ---------------------------------------------------------------------------
+# Load environment from .env files (project root first, then service-level)
+# ---------------------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+    
+    _service_dir = Path(__file__).parent
+    _project_root = _service_dir.parent.parent
+    
+    _root_env = _project_root / ".env"
+    if _root_env.exists():
+        load_dotenv(_root_env)
+    
+    _service_env = _service_dir / ".env"
+    if _service_env.exists():
+        load_dotenv(_service_env, override=True)
+except ImportError:
+    pass
 
 import requests
 from fastapi import FastAPI, HTTPException

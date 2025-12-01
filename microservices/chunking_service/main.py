@@ -1,3 +1,10 @@
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from project root, then service-level .env (override)
+load_dotenv(Path(__file__).parents[2] / ".env")
+load_dotenv(override=True)
+
 import re
 from typing import Any, Dict, List, Optional, Sequence
 

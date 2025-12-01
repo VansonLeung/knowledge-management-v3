@@ -7,6 +7,10 @@ Environment variables:
     MINERU_BACKEND        vlm-mlx-engine | vlm-transformers | pipeline (default: vlm-mlx-engine)
     MINERU_CONCURRENCY    max parallel requests; 0 = unlimited, 1 = serial (default: 1)
     MINERU_CACHE_DIR      model cache directory (default: ~/.cache/mineru)
+
+Supports .env files:
+    - Project root .env (loaded first)
+    - Service-level .env (overrides project root)
 """
 
 from __future__ import annotations
@@ -18,6 +22,25 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# ---------------------------------------------------------------------------
+# Load environment from .env files (project root first, then service-level)
+# ---------------------------------------------------------------------------
+try:
+    from dotenv import load_dotenv
+    
+    _service_dir = Path(__file__).parent
+    _project_root = _service_dir.parent.parent
+    
+    _root_env = _project_root / ".env"
+    if _root_env.exists():
+        load_dotenv(_root_env)
+    
+    _service_env = _service_dir / ".env"
+    if _service_env.exists():
+        load_dotenv(_service_env, override=True)
+except ImportError:
+    pass
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware

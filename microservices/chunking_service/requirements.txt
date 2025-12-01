@@ -2,3 +2,4 @@ fastapi
 uvicorn
 langchain-text-splitters
 pydantic
+python-dotenv>=1.0.0

@@ -22,6 +22,7 @@ From repo root:
 venv/bin/pip install -r microservices/pymupdf_service/requirements.txt
 venv/bin/pip install -r microservices/mineru_service/requirements.txt   # MinerU with MLX (macOS)
 venv/bin/pip install -r microservices/chunking_service/requirements.txt
+venv/bin/pip install -r microservices/markdown_analysis_service/requirements.txt
 venv/bin/pip install -r microservices/openai_embedding_client_service/requirements.txt
 venv/bin/pip install -r microservices/openai_llm_client_service/requirements.txt
 venv/bin/pip install -r mainservices/es_controller/requirements.txt
@@ -30,7 +31,9 @@ venv/bin/pip install -r mainservices/es_controller/requirements.txt
 ## Run services (local dev)
 ```bash
 venv/bin/python3 microservices/pymupdf_service/main.py
+venv/bin/python3 microservices/mineru_service/main.py
 venv/bin/python3 microservices/chunking_service/main.py
+venv/bin/python3 microservices/markdown_analysis_service/main.py
 venv/bin/python3 microservices/openai_embedding_client_service/main.py
 venv/bin/python3 microservices/openai_llm_client_service/main.py
 # ensure Elasticsearch is running at http://localhost:9200 (elastic/octopuspass if secured)
