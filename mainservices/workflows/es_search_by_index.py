@@ -24,7 +24,7 @@ class EmbeddingServiceClient:
 
 
 class LLMServiceClient:
-    def __init__(self, base_url: str = "http://localhost:16004"):
+    def __init__(self, base_url: str = "http://localhost:17004"):
         self.base_url = base_url.rstrip("/")
 
     def chat(self, prompt: str) -> str:
@@ -174,7 +174,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Search an index using question embeddings.")
     parser.add_argument("--index", default="a-001", help="Index name (default: a-001)")
     parser.add_argument("--embedding-url", default="http://localhost:16003", help="Embedding service URL")
-    parser.add_argument("--llm-url", default="http://localhost:16004", help="LLM service URL")
+    parser.add_argument("--llm-url", default="http://localhost:17004", help="LLM service URL")
     parser.add_argument("--rag", action="store_true", help="If set, ask LLM to answer using retrieved chunks.")
     parser.add_argument("--rag-stream", action="store_true", help="Stream LLM answer via SSE when using --rag.")
     parser.add_argument("--llm-test", action="store_true", help="Send a test prompt ('hi , how are you?') to the LLM chat endpoint.")

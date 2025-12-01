@@ -67,7 +67,7 @@ class EmbeddingServiceClient:
 
 
 class LLMServiceClient:
-    def __init__(self, base_url: str = "http://localhost:16004"):
+    def __init__(self, base_url: str = "http://localhost:17004"):
         self.base_url = base_url.rstrip("/")
 
     def extract_metadata(self, text: str) -> Dict:
@@ -98,7 +98,7 @@ class IngestionWorkflow:
         pymupdf_url: str = "http://localhost:16002",
         chunking_url: str = "http://localhost:16006",
         embedding_url: str = "http://localhost:16003",
-        llm_url: str = "http://localhost:16004",
+        llm_url: str = "http://localhost:17004",
     ):
         self.pdf_path = pdf_path
         self.file_id = str(uuid.uuid4())
@@ -166,7 +166,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pymupdf-url", default="http://localhost:16002", help="PyMuPDF service base URL.")
     parser.add_argument("--chunking-url", default="http://localhost:16006", help="Chunking service base URL.")
     parser.add_argument("--embedding-url", default="http://localhost:16003", help="Embedding service base URL.")
-    parser.add_argument("--llm-url", default="http://localhost:16004", help="LLM service base URL.")
+    parser.add_argument("--llm-url", default="http://localhost:17004", help="LLM service base URL.")
     return parser.parse_args()
 
 

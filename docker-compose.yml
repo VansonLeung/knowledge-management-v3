@@ -59,5 +59,20 @@ services:
       OPENAI_LLM_MODEL: ${OPENAI_LLM_MODEL:-Qwen3-4B-Instruct-2507-4bit}
       OPENAI_TIMEOUT: ${OPENAI_TIMEOUT:-60}
 
+  mineru_service:
+    build:
+      context: .
+      target: mineru_service
+    restart: unless-stopped
+    ports:
+      - "16007:16007"
+    environment:
+      MINERU_BACKEND: ${MINERU_BACKEND:-pipeline}
+      MINERU_CONCURRENCY: ${MINERU_CONCURRENCY:-1}
+      MINERU_CACHE_DIR: /cache/mineru
+    volumes:
+      - mineru-cache:/cache/mineru
+
 volumes:
   es-data:
+  mineru-cache:

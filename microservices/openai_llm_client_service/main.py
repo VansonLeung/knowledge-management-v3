@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 DEFAULT_MODEL = os.getenv("OPENAI_LLM_MODEL", "Qwen3-4B-Instruct-2507-4bit")
 API_BASE = os.getenv("OPENAI_API_BASE", "http://localhost:18000/v1")
-API_KEY = os.getenv("OPENAI_API_KEY")
+API_KEY = os.getenv("OPENAI_API_KEY", "API_KEY_NOT_SET")
 REQUEST_TIMEOUT = int(os.getenv("OPENAI_TIMEOUT", "60"))
 
 DEFAULT_METADATA_KEYS = [
@@ -21,6 +21,11 @@ DEFAULT_METADATA_KEYS = [
     "venues",
     "people",
 ]
+
+DEFAULT_RAG_SYSTEM_PROMPT = (
+    "You are a helpful assistant answering questions using only the provided context chunks. "
+    "Be concise and cite relevant details. If the answer is not in the context, say you don't know."
+)
 
 app = FastAPI(title="OpenAI LLM Client Service")
 
@@ -69,6 +74,10 @@ class RagRequest(BaseModel):
     temperature: float = Field(0.2, ge=0, le=2)
     max_tokens: int = Field(4096, gt=0)
     stream: bool = Field(False, description="Whether to stream the LLM response as SSE.")
+    system_prompt: Optional[str] = Field(
+        None,
+        description="Override the default system prompt that instructs how to use the context chunks",
+    )
 
 
 class RagResponse(BaseModel):
@@ -227,31 +236,36 @@ async def extract_metadata(request: MetadataRequest):
     return MetadataResponse(model=model, metadata=metadata, raw=raw_content, usage=body.get("usage"))
 
 
-def _rag_messages(question: str, contexts: List[RagContext]) -> List[Dict[str, str]]:
-    context_parts = []
-    for idx, ctx in enumerate(contexts):
-        meta_bits = []
+def _rag_messages(
+    question: str,
+    contexts: List[RagContext],
+    system_prompt: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    system = (system_prompt or DEFAULT_RAG_SYSTEM_PROMPT).strip()
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system}]
+
+    for idx, ctx in enumerate(contexts, start=1):
+        meta_bits: List[str] = []
         if ctx.metadata:
             for key in ["page_number", "chunk_index", "document_file_name"]:
                 if key in ctx.metadata:
                     meta_bits.append(f"{key}={ctx.metadata[key]}")
         meta_str = f" ({', '.join(meta_bits)})" if meta_bits else ""
         score_str = f" [score={ctx.score}]" if ctx.score is not None else ""
-        context_parts.append(f"[{idx+1}]{score_str}{meta_str}\n{ctx.text.strip()}")
+        context_header = f"Context {idx}{score_str}{meta_str}"
+        context_body = ctx.text.strip()
+        messages.append({"role": "user", "content": f"{context_header}\n{context_body}"})
 
-    context_block = "\n\n".join(context_parts)
-    system = (
-        "You are a helpful assistant answering questions using only the provided context chunks. "
-        "Be concise and cite relevant details. If the answer is not in the context, say you don't know."
-    )
-    user = f"Question: {question}\n\nContext:\n{context_block}"
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    question_text = question.strip() or "(empty question)"
+    messages.append({"role": "user", "content": f"Question:\n{question_text}"})
+
+    return messages
 
 
 @app.post("/rag", response_model=RagResponse)
 async def rag_answer(request: RagRequest):
     model = request.model or DEFAULT_MODEL
-    messages = _rag_messages(request.question, request.contexts)
+    messages = _rag_messages(request.question, request.contexts, request.system_prompt)
 
     try:
         body = _chat(messages, model, request.temperature, request.max_tokens)
@@ -270,7 +284,7 @@ async def rag_answer(request: RagRequest):
 @app.post("/rag/stream")
 async def rag_answer_stream(request: RagRequest):
     model = request.model or DEFAULT_MODEL
-    messages = _rag_messages(request.question, request.contexts)
+    messages = _rag_messages(request.question, request.contexts, request.system_prompt)
 
     def event_stream():
         try:
@@ -286,4 +300,4 @@ async def rag_answer_stream(request: RagRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=16004)
+    uvicorn.run(app, host="0.0.0.0", port=17004)

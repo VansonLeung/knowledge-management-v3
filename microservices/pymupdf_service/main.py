@@ -19,6 +19,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount test webpage
+try:
+    from test_webpage import router as test_router
+    app.include_router(test_router)
+except ImportError:
+    pass  # test_webpage not available
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}

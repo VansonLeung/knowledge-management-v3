@@ -5,7 +5,14 @@ from fastapi import FastAPI, HTTPException
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
-app = FastAPI()
+app = FastAPI(title="Chunking Service", version="1.0.0")
+
+# Mount test webpage
+try:
+    from test_webpage import router as test_router
+    app.include_router(test_router)
+except ImportError:
+    pass  # test_webpage not available
 
 _CJK_REGEX = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 ENGLISH_SEPARATORS = [
