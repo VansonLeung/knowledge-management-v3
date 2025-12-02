@@ -234,34 +234,68 @@ ALL_TOOLS: List[ToolDefinition] = [
 ]
 
 
-def get_tool_names(enable_polish_content: bool = True) -> List[str]:
+def get_tool_names(
+    enable_polish_content: bool = True,
+    enable_glossary_lookup: bool = True,
+) -> List[str]:
     """Get list of available tool names.
     
     Args:
         enable_polish_content: Whether to include polish_and_add_content tool.
+        enable_glossary_lookup: Whether to include lookup_glossary tool.
     """
-    tools = get_tool_definitions(enable_polish_content)
+    tools = get_tool_definitions(enable_polish_content, enable_glossary_lookup)
     return [tool["function"]["name"] for tool in tools]
 
 
-def get_tool_definitions(enable_polish_content: bool = True) -> List[ToolDefinition]:
-    """Get the list of tool definitions for LLM function calling.
+def get_tool_definitions(
+    enable_polish_content: bool = True,
+    enable_glossary_lookup: bool = True,
+) -> List[ToolDefinition]:
+    """Get the list of tool definitions for LLM function calling (agentic mode).
     
     Args:
         enable_polish_content: Whether to include polish_and_add_content tool.
             When False, the LLM will only read and analyze without polishing.
+        enable_glossary_lookup: Whether to include lookup_glossary tool.
+            When False, the LLM will skip glossary lookups.
             
     Returns:
         List of tool definitions.
     """
     tools = [
         READ_TEXT_TOOL,
-        LOOKUP_GLOSSARY_TOOL,
         FINISH_ANALYSIS_TOOL,
     ]
     
     if enable_polish_content:
         # Insert after READ_TEXT_TOOL
         tools.insert(1, POLISH_AND_ADD_CONTENT_TOOL)
+    
+    if enable_glossary_lookup:
+        # Insert before FINISH_ANALYSIS_TOOL
+        tools.insert(-1, LOOKUP_GLOSSARY_TOOL)
+    
+    return tools
+
+
+def get_standalone_tools(
+    enable_polish_content: bool = True,
+) -> List[ToolDefinition]:
+    """Get tool definitions for standalone mode (no iterative reading).
+    
+    In standalone mode, the full text is provided in chunks via user messages,
+    so the read_text and lookup_glossary tools are not needed.
+    
+    Args:
+        enable_polish_content: Whether to include polish_and_add_content tool.
+            
+    Returns:
+        List of tool definitions for standalone mode.
+    """
+    tools = [FINISH_ANALYSIS_TOOL]
+    
+    if enable_polish_content:
+        tools.insert(0, POLISH_AND_ADD_CONTENT_TOOL)
     
     return tools

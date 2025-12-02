@@ -106,6 +106,156 @@ class StudyTextRequest(BaseModel):
         True,
         description="Enable the polish_and_add_content tool for cleaning messy text"
     )
+    enable_glossary_lookup: bool = Field(
+        True,
+        description="Enable the lookup_glossary tool for term lookup"
+    )
+    is_standalone: bool = Field(
+        False,
+        description="Use standalone mode: chunks text and sends to LLM without iterative tool calling"
+    )
+    
+    # LLM configuration overrides
+    model: Optional[str] = Field(
+        None, 
+        description="Override the default LLM model"
+    )
+    api_key: Optional[str] = Field(
+        None, 
+        description="Override the default API key"
+    )
+    base_url: Optional[str] = Field(
+        None, 
+        description="Override the default API base URL"
+    )
+
+
+class EvaluateCleanlinessRequest(BaseModel):
+    """Request payload for article cleanliness evaluation."""
+    
+    # Required
+    text: str = Field(
+        ..., 
+        description="The text or markdown content to evaluate"
+    )
+    
+    # LLM configuration overrides
+    model: Optional[str] = Field(
+        None, 
+        description="Override the default LLM model"
+    )
+    api_key: Optional[str] = Field(
+        None, 
+        description="Override the default API key"
+    )
+    base_url: Optional[str] = Field(
+        None, 
+        description="Override the default API base URL"
+    )
+
+
+class EvaluateCleanlinessResponse(BaseModel):
+    """Response payload for article cleanliness evaluation."""
+    
+    is_messy: bool = Field(
+        ..., 
+        description="Whether the article is messy and needs cleaning"
+    )
+    reasoning: Optional[str] = Field(
+        None,
+        description="Explanation of why the article is clean or messy"
+    )
+    issues_found: Optional[List[str]] = Field(
+        None,
+        description="List of specific issues found in the text"
+    )
+    cleanliness_score: Optional[int] = Field(
+        None,
+        ge=0,
+        le=100,
+        description="Cleanliness score from 0 (very messy) to 100 (perfectly clean)"
+    )
+    model: Optional[str] = Field(
+        None,
+        description="The model used for evaluation"
+    )
+    total_chunks: Optional[int] = Field(
+        None,
+        description="Number of chunks the text was split into"
+    )
+    total_words: Optional[int] = Field(
+        None,
+        description="Total word count of the text"
+    )
+
+
+class PolishContentRequest(BaseModel):
+    """Request payload for content polishing."""
+    
+    text: str = Field(
+        ..., 
+        description="The text or markdown content to polish"
+    )
+    
+    # LLM configuration overrides
+    model: Optional[str] = Field(
+        None, 
+        description="Override the default LLM model"
+    )
+    api_key: Optional[str] = Field(
+        None, 
+        description="Override the default API key"
+    )
+    base_url: Optional[str] = Field(
+        None, 
+        description="Override the default API base URL"
+    )
+
+
+class FinalizeContentRequest(BaseModel):
+    """Request payload for content finalization (extract metadata)."""
+    
+    text: str = Field(
+        ..., 
+        description="The text or markdown content to finalize"
+    )
+    categories: Optional[List[CategoryItem]] = Field(
+        None, 
+        description="Optional category tree for classification"
+    )
+    max_keywords: Optional[int] = Field(
+        10, 
+        ge=1, 
+        le=50,
+        description="Maximum number of keywords to generate"
+    )
+    
+    # LLM configuration overrides
+    model: Optional[str] = Field(
+        None, 
+        description="Override the default LLM model"
+    )
+    api_key: Optional[str] = Field(
+        None, 
+        description="Override the default API key"
+    )
+    base_url: Optional[str] = Field(
+        None, 
+        description="Override the default API base URL"
+    )
+
+
+class GlossaryLookupRequest(BaseModel):
+    """Request payload for glossary term lookup."""
+    
+    text: str = Field(
+        ..., 
+        description="The text to search for glossary terms"
+    )
+    glossary: List[GlossaryEntry] = Field(
+        ..., 
+        description="Glossary of domain terms with definitions"
+    )
     
     # LLM configuration overrides
     model: Optional[str] = Field(

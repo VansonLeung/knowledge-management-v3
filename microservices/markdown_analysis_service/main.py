@@ -19,9 +19,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from analysis import analyze_document_stream
+from analysis import (
+    analyze_document_stream,
+    evaluate_article_cleanliness,
+    polish_content,
+    finalize_content,
+    glossary_lookup,
+)
 from config import ServiceConfig
-from models import StudyTextRequest
+from models import (
+    StudyTextRequest,
+    EvaluateCleanlinessRequest,
+    PolishContentRequest,
+    FinalizeContentRequest,
+    GlossaryLookupRequest,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +111,58 @@ async def health():
         "max_iterations": serviceConfig.max_iterations,
         "max_keywords": serviceConfig.max_keywords,
     }
+
+
+@app.post("/evaluate_article_cleanliness")
+async def evaluate_cleanliness(request: EvaluateCleanlinessRequest):
+    """Evaluate whether an article's text is clean or messy.
+    
+    Chunks the input text and prompts an LLM to evaluate cleanliness.
+    Returns a JSON response indicating whether the article needs cleaning.
+    
+    Returns:
+        JSON with is_messy boolean, cleanliness_score, reasoning, and issues_found.
+    """
+    return await evaluate_article_cleanliness(request, serviceConfig)
+
+
+@app.post("/polish_content")
+async def polish_content_endpoint(request: PolishContentRequest):
+    """Polish and clean article content.
+    
+    Removes web artifacts, fixes formatting, and cleans up messy text
+    while preserving the original meaning and important information.
+    
+    Returns:
+        JSON with polished_content, changes_made, and sections_removed.
+    """
+    return await polish_content(request, serviceConfig)
+
+
+@app.post("/finalize_content")
+async def finalize_content_endpoint(request: FinalizeContentRequest):
+    """Finalize content by extracting metadata and classification.
+    
+    Analyzes the text to extract language, title, summary, keywords,
+    category, author info, and other metadata.
+    
+    Returns:
+        JSON with language, title, summary, keywords, category, and metadata.
+    """
+    return await finalize_content(request, serviceConfig)
+
+
+@app.post("/glossary_lookup")
+async def glossary_lookup_endpoint(request: GlossaryLookupRequest):
+    """Look up glossary terms in the text.
+    
+    Searches for occurrences of glossary terms in the provided text
+    and returns matches with occurrence counts.
+    
+    Returns:
+        JSON with matches array containing term, occurrences, and definition.
+    """
+    return await glossary_lookup(request, serviceConfig)
 
 
 # ---------------------------------------------------------------------------

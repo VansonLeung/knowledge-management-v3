@@ -545,8 +545,8 @@ class AnalysisState:
             date_duration: Event duration.
             location: Event location.
             venue: Event venue.
-            related_people: Related people mentioned in the main article.
-            related_organizations: Related organizations mentioned in the main article.
+            related_people: Related people related to the main article.
+            related_organizations: Related organizations related to the main article.
             related_links: Related links.
         Returns:
             Confirmation message.

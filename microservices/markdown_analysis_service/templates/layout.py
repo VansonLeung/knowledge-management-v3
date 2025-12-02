@@ -54,12 +54,27 @@ _LLM_CONFIG_SECTION = """
                         <label>Max Keywords</label>
                         <input type="number" id="maxKeywords" value="10" min="1" max="50">
                     </div>
+                    <hr style="margin: 1rem 0; border: none; border-top: 1px solid #e0e0e0;">
                     <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox" id="enablePolishContent" checked style="width: auto; margin: 0;">
-                        <label for="enablePolishContent" style="margin: 0; cursor: pointer;">Enable Polish Content Tool</label>
+                        <input type="checkbox" id="isStandalone" style="width: auto; margin: 0;">
+                        <label for="isStandalone" style="margin: 0; cursor: pointer;">Standalone Mode</label>
                     </div>
                     <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
-                        When enabled, the LLM can clean and polish messy text. Disable for faster analysis without content cleaning.
+                        Chunks text and sends to LLM in one go. Faster but uses more tokens.
+                    </p>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+                        <input type="checkbox" id="enablePolishContent" checked style="width: auto; margin: 0;">
+                        <label for="enablePolishContent" style="margin: 0; cursor: pointer;">Enable Polish Content</label>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        Allow LLM to clean and polish messy text.
+                    </p>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+                        <input type="checkbox" id="enableGlossaryLookup" checked style="width: auto; margin: 0;">
+                        <label for="enableGlossaryLookup" style="margin: 0; cursor: pointer;">Enable Glossary Lookup</label>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        Allow LLM to look up terms in the glossary (agentic mode only).
                     </p>
                 </div>
             </div>
@@ -162,7 +177,13 @@ LAYOUT = f"""{_HEADER}
 {_METADATA_SECTION}
 {_GLOSSARY_SECTION}
 {_CATEGORIES_SECTION}
-            <button id="analyzeBtn">Analyze Text</button>
+            <div style=\"display: flex; gap: 0.5rem; flex-wrap: wrap;\">
+                <button id=\"analyzeBtn\" style=\"flex: 1; min-width: 45%;\">Analyze Text</button>
+                <button id=\"checkCleanBtn\" style=\"flex: 1; min-width: 45%; background: #4CAF50;\">Check Cleanliness</button>
+                <button id=\"polishBtn\" style=\"flex: 1; min-width: 45%; background: #2196F3;\">Polish Content</button>
+                <button id=\"finalizeBtn\" style=\"flex: 1; min-width: 45%; background: #9C27B0;\">Finalize Content</button>
+                <button id=\"glossaryBtn\" style=\"flex: 1; min-width: 100%; background: #FF9800;\">Glossary Lookup</button>
+            </div>
         </aside>
         <main class="main">
 {_STREAM_PANEL}
