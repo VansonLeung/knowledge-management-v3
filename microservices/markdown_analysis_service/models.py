@@ -115,6 +115,16 @@ class StudyTextRequest(BaseModel):
         description="Use standalone mode: chunks text and sends to LLM without iterative tool calling"
     )
     
+    # Translation options
+    enable_translation: bool = Field(
+        False,
+        description="Enable translation of the main article content"
+    )
+    translate_to: Optional[str] = Field(
+        None,
+        description="Target language/locale for translation (e.g., 'en-US', 'zh-CN', 'ja-JP')"
+    )
+    
     # LLM configuration overrides
     model: Optional[str] = Field(
         None, 
@@ -195,6 +205,22 @@ class PolishContentRequest(BaseModel):
     text: str = Field(
         ..., 
         description="The text or markdown content to polish"
+    )
+    
+    # Optional glossary for translation accuracy
+    glossary: Optional[List[GlossaryEntry]] = Field(
+        None, 
+        description="Optional glossary of domain terms to improve translation accuracy"
+    )
+    
+    # Translation options
+    enable_translation: bool = Field(
+        False,
+        description="Enable translation of the content"
+    )
+    translate_to: Optional[str] = Field(
+        None,
+        description="Target language/locale for translation (e.g., 'en-US', 'zh-CN', 'ja-JP')"
     )
     
     # LLM configuration overrides

@@ -64,6 +64,9 @@ const elements = {
     isStandalone: document.getElementById('isStandalone'),
     enablePolishContent: document.getElementById('enablePolishContent'),
     enableGlossaryLookup: document.getElementById('enableGlossaryLookup'),
+    enableTranslation: document.getElementById('enableTranslation'),
+    translateTo: document.getElementById('translateTo'),
+    translateToGroup: document.getElementById('translateToGroup'),
     metadata: document.getElementById('metadata'),
     glossary: document.getElementById('glossary'),
     categories: document.getElementById('categories'),
@@ -160,6 +163,11 @@ function buildRequest() {
     request.is_standalone = elements.isStandalone.checked;
     request.enable_polish_content = elements.enablePolishContent.checked;
     request.enable_glossary_lookup = elements.enableGlossaryLookup.checked;
+    
+    // Add translation options
+    request.enable_translation = elements.enableTranslation.checked;
+    const translateTo = elements.translateTo.value.trim();
+    if (translateTo) request.translate_to = translateTo;
     
     // Parse JSON fields
     const metadata = parseJsonSafe(elements.metadata.value, 'metadata');
@@ -616,12 +624,13 @@ function buildBaseRequest() {
 }
 
 function renderPolishResult(data) {
+    let translatedInfo = data.translated_to ? ` | <strong>Translated to:</strong> ${escapeHtml(data.translated_to)}` : '';
     let html = `
         <div class="summary-card" style="margin-bottom: 1rem; border-left: 4px solid #2196F3;">
             <h3>✨ Content Polished</h3>
             <div style="margin-top: 0.5rem;">
                 <strong>Model:</strong> ${escapeHtml(data.model || 'unknown')} |
-                <strong>Stats:</strong> ${data.total_words || 0} words, ${data.total_chunks || 0} chunks
+                <strong>Stats:</strong> ${data.total_words || 0} words, ${data.total_chunks || 0} chunks${translatedInfo}
             </div>
         </div>
     `;
@@ -643,6 +652,17 @@ function renderPolishResult(data) {
                 <h3>Sections Removed</h3>
                 <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
                     ${data.sections_removed.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    if (data.translation_notes && data.translation_notes.length > 0) {
+        html += `
+            <div class="summary-card" style="margin-bottom: 1rem;">
+                <h3>Translation Notes</h3>
+                <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                    ${data.translation_notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}
                 </ul>
             </div>
         `;
@@ -670,6 +690,16 @@ async function handlePolishClick() {
         alert('Please enter text to polish');
         return;
     }
+    
+    // Add translation options for Polish Content
+    request.enable_translation = elements.enableTranslation.checked;
+    const translateTo = elements.translateTo.value.trim();
+    if (translateTo) request.translate_to = translateTo;
+    
+    // Add glossary for translation accuracy
+    const glossary = parseJsonSafe(elements.glossary.value, 'glossary');
+    if (glossary === undefined) return;
+    if (glossary) request.glossary = glossary;
     
     showLoadingGeneric('Polishing content...');
     
@@ -926,6 +956,8 @@ const PERSISTED_FIELDS = [
     { id: 'isStandalone', type: 'checkbox' },
     { id: 'enablePolishContent', type: 'checkbox' },
     { id: 'enableGlossaryLookup', type: 'checkbox' },
+    { id: 'enableTranslation', type: 'checkbox' },
+    { id: 'translateTo', type: 'text' },
     { id: 'metadata', type: 'text' },
     { id: 'glossary', type: 'text' },
     { id: 'categories', type: 'text' },
@@ -1008,12 +1040,23 @@ _INIT = """
 // Initialization
 // ---------------------------------------------------------------------------
 
+function updateTranslateToVisibility() {
+    const show = elements.enableTranslation.checked;
+    elements.translateToGroup.style.display = show ? 'block' : 'none';
+}
+
 function init() {
     // Load saved settings from localStorage
     loadSettingsFromStorage();
     
     // Bind settings persistence listeners
     bindSettingsListeners();
+    
+    // Set initial visibility of translate_to field
+    updateTranslateToVisibility();
+    
+    // Toggle translate_to visibility when checkbox changes
+    elements.enableTranslation.addEventListener('change', updateTranslateToVisibility);
     
     // Bind event listeners
     elements.analyzeBtn.addEventListener('click', handleAnalyzeClick);

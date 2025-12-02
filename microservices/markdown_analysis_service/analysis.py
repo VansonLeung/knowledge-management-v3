@@ -439,6 +439,18 @@ async def analyze_document_standalone_stream(
     # Check if polish content is enabled
     enable_polish_content = request.enable_polish_content
     
+    # Check translation settings
+    enable_translation = request.enable_translation
+    translate_to = request.translate_to
+    
+    # Prepare glossary for translation if enabled
+    glossary_for_translation = None
+    if enable_translation and translate_to and request.glossary:
+        glossary_for_translation = [
+            {"term": g.term, "definition": g.definition, "aliases": g.aliases}
+            for g in request.glossary
+        ]
+    
     # Build system prompt for standalone mode
     system_prompt = build_standalone_system_prompt(
         total_chunks=len(chunks),
@@ -446,6 +458,9 @@ async def analyze_document_standalone_stream(
         categories=state.categories,
         max_keywords=state.max_keywords,
         enable_polish_content=enable_polish_content,
+        enable_translation=enable_translation,
+        translate_to=translate_to,
+        glossary=glossary_for_translation,
     )
     
     # Build messages: system + chunk messages + final instruction
@@ -802,10 +817,21 @@ async def polish_content(
         base_url=base_url,
     )
     
+    # Prepare glossary for translation if enabled
+    glossary_for_translation = None
+    if request.enable_translation and request.translate_to and request.glossary:
+        glossary_for_translation = [
+            {"term": g.term, "definition": g.definition, "aliases": g.aliases}
+            for g in request.glossary
+        ]
+    
     # Build messages
     system_prompt = build_polish_content_prompt(
         total_chunks=len(chunks),
         total_words=total_words,
+        enable_translation=request.enable_translation,
+        translate_to=request.translate_to,
+        glossary=glossary_for_translation,
     )
     
     messages: List[Dict[str, Any]] = [

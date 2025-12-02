@@ -76,6 +76,18 @@ _LLM_CONFIG_SECTION = """
                     <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
                         Allow LLM to look up terms in the glossary (agentic mode only).
                     </p>
+                    <hr style="margin: 1rem 0; border: none; border-top: 1px solid #e0e0e0;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="enableTranslation" style="width: auto; margin: 0;">
+                        <label for="enableTranslation" style="margin: 0; cursor: pointer;">Translate Content</label>
+                    </div>
+                    <div class="form-group" id="translateToGroup" style="display: none; margin-top: 0.5rem;">
+                        <label>Target Language</label>
+                        <input type="text" id="translateTo" placeholder="e.g., English, 简体中文, 日本語">
+                    </div>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        Translate polished content to target language. Uses glossary for accuracy.
+                    </p>
                 </div>
             </div>
 """

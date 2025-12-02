@@ -204,6 +204,38 @@ def build_tool_error_message(tool_name: str, error: str) -> str:
 
 
 # =============================================================================
+# Translation Helper
+# =============================================================================
+
+
+def _format_glossary_for_translation(glossary: List[dict]) -> str:
+    """Format glossary entries for translation reference.
+    
+    Args:
+        glossary: List of glossary entries with term and definition.
+        
+    Returns:
+        Formatted glossary string.
+    """
+    if not glossary:
+        return ""
+    
+    lines = ["## Glossary Reference for Translation", ""]
+    lines.append("Use these terms consistently when translating:")
+    lines.append("")
+    for entry in glossary:
+        term = entry.get("term", "")
+        definition = entry.get("definition", "")
+        aliases = entry.get("aliases", [])
+        if aliases:
+            lines.append(f"- **{term}** (aliases: {', '.join(aliases)}): {definition}")
+        else:
+            lines.append(f"- **{term}**: {definition}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# =============================================================================
 # Standalone Mode Prompts
 # =============================================================================
 
@@ -214,6 +246,9 @@ def build_standalone_system_prompt(
     categories: Optional[List[CategoryItem]] = None,
     max_keywords: int = 10,
     enable_polish_content: bool = True,
+    enable_translation: bool = False,
+    translate_to: str = None,
+    glossary: List[dict] = None,
 ) -> str:
     """Build the system prompt for standalone mode analysis.
     
@@ -226,6 +261,9 @@ def build_standalone_system_prompt(
         categories: Optional category tree for classification.
         max_keywords: Maximum number of keywords to generate.
         enable_polish_content: Whether polish_and_add_content tool is available.
+        enable_translation: Whether to translate the polished content.
+        translate_to: Target language/locale for translation.
+        glossary: Optional glossary for translation accuracy.
         
     Returns:
         Complete system prompt string for standalone mode.
@@ -243,14 +281,25 @@ def build_standalone_system_prompt(
     next_step = 1
     
     if enable_polish_content:
+        polish_description = "**Polish and add** meaningful content using `polish_and_add_content`"
+        if enable_translation and translate_to:
+            polish_description = f"**Polish, TRANSLATE to {translate_to}, and add** meaningful content using `polish_and_add_content`"
+        
         prompt_parts.extend([
             f"{next_step}. **Read through all chunks** to understand the full document",
-            f"{next_step + 1}. **Polish and add** meaningful content using `polish_and_add_content`",
+            f"{next_step + 1}. {polish_description}",
             "   - For each meaningful section, provide a cleaned and polished version",
             "   - Skip boilerplate, navigation, ads, and irrelevant content",
             "   - Fix formatting issues, HTML artifacts, and messy text",
             "   - You may call this tool multiple times for different sections",
         ])
+        
+        if enable_translation and translate_to:
+            prompt_parts.extend([
+                f"   - **TRANSLATE** all polished content to {translate_to}",
+                "   - Ensure natural, fluent translation in the target language",
+            ])
+        
         next_step += 2
     else:
         prompt_parts.append(f"{next_step}. **Read through all chunks** to understand the full document")
@@ -290,14 +339,42 @@ def build_standalone_system_prompt(
             "- Do NOT add new information or significantly rewrite",
             "",
         ])
+        
+        # Add translation guidelines if enabled
+        if enable_translation and translate_to:
+            prompt_parts.extend([
+                "### TRANSLATION Guidelines",
+                f"**IMPORTANT**: You MUST translate all polished content to **{translate_to}**.",
+                "",
+                "- Translate ALL text content to the target language",
+                "- Maintain the original meaning and tone",
+                "- Preserve proper nouns appropriately",
+                "- Keep markdown formatting intact",
+                "- Ensure natural, fluent translation",
+                "- Do NOT leave any content in the original language",
+                "",
+            ])
+            
+            # Add glossary if provided
+            if glossary:
+                glossary_text = _format_glossary_for_translation(glossary)
+                prompt_parts.extend([
+                    glossary_text,
+                    "When translating, use the glossary terms consistently.",
+                    "",
+                ])
     
     prompt_parts.extend([
         "### Keywords",
         f"- Generate up to {max_keywords} meaningful keywords",
         "- Focus on main topics, concepts, and themes",
         "- Use lowercase unless proper nouns",
-        "",
     ])
+    
+    if enable_translation and translate_to:
+        prompt_parts.append(f"- Keywords should be in {translate_to}")
+    
+    prompt_parts.append("")
     
     # Category classification
     if categories:
@@ -419,17 +496,24 @@ Be strict but fair. Minor formatting inconsistencies don't make an article messy
 def build_polish_content_prompt(
     total_chunks: int,
     total_words: int,
+    enable_translation: bool = False,
+    translate_to: str = None,
+    glossary: List[dict] = None,
 ) -> str:
     """Build the system prompt for content polishing.
     
     Args:
         total_chunks: Number of text chunks provided.
         total_words: Approximate total word count.
+        enable_translation: Whether to translate the content.
+        translate_to: Target language/locale for translation.
+        glossary: Optional glossary for translation accuracy.
         
     Returns:
         Complete system prompt string for content polishing.
     """
-    return f"""You are a content polishing assistant. Your task is to clean and polish the given text while preserving its meaning and important information.
+    # Base polishing instructions
+    base_prompt = f"""You are a content polishing assistant. Your task is to clean and polish the given text while preserving its meaning and important information.
 
 The document is split into {total_chunks} chunk(s), approximately {total_words} words total.
 
@@ -456,7 +540,36 @@ Clean and polish the text by:
    - Keep article title and subtitles
    - Keep author information and publication date
    - Keep key conclusions and findings
-   - Preserve markdown formatting (headers, lists, emphasis)
+   - Preserve markdown formatting (headers, lists, emphasis)"""
+
+    # Add translation instructions if enabled
+    if enable_translation and translate_to:
+        translation_instructions = f"""
+
+## TRANSLATION TASK:
+
+**IMPORTANT**: After polishing, you MUST translate the entire content to **{translate_to}**.
+
+Translation Guidelines:
+- Translate ALL text content to {translate_to}
+- Maintain the original meaning and tone
+- Preserve proper nouns and technical terms appropriately
+- Keep markdown formatting intact (headers, lists, emphasis)
+- Ensure natural, fluent translation in the target language
+- Do NOT leave any content in the original language"""
+
+        # Add glossary if provided
+        if glossary:
+            glossary_text = _format_glossary_for_translation(glossary)
+            translation_instructions += f"""
+
+{glossary_text}
+When translating, use the glossary terms consistently. If a glossary term has a specific translation or should be kept in original form, follow the glossary definition."""
+
+        base_prompt += translation_instructions
+
+    # Add guidelines and response format
+    base_prompt += """
 
 ## Important Guidelines:
 
@@ -471,16 +584,30 @@ Clean and polish the text by:
 Respond with a JSON object containing:
 
 ```json
-{{
+{
     "polished_content": "The cleaned and polished text...",
     "changes_made": ["list", "of", "changes", "made"],
-    "sections_removed": ["list", "of", "removed", "sections"]
-}}
+    "sections_removed": ["list", "of", "removed", "sections"]"""
+
+    if enable_translation and translate_to:
+        base_prompt += f""",
+    "translated_to": "{translate_to}",
+    "translation_notes": ["any", "translation", "decisions", "made"]"""
+
+    base_prompt += """
+}
 ```
 
-- `polished_content`: The full polished text
+- `polished_content`: The full polished text"""
+    
+    if enable_translation and translate_to:
+        base_prompt += f" (translated to {translate_to})"
+    
+    base_prompt += """
 - `changes_made`: Brief list of types of changes made
 - `sections_removed`: Brief list of content types that were removed (e.g., "navigation menu", "cookie notice")"""
+
+    return base_prompt
 
 
 # =============================================================================
