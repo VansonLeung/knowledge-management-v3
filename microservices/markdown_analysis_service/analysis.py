@@ -71,10 +71,12 @@ def execute_tool(
             context=arguments.get("context", 3),
         )
     
-    elif tool_name == "extract_lines_as_main_article":
-        return state.extract_lines_as_main_article(
+    elif tool_name == "polish_and_add_content":
+        return state.polish_and_add_content(
+            polished_text=arguments["polished_text"],
             start=arguments["start_line"],
             end=arguments["end_line"],
+            section_label=arguments.get("section_label"),
         )
     
     elif tool_name == "lookup_glossary":
@@ -97,6 +99,8 @@ def execute_tool(
             date_duration=arguments.get("date_duration"),
             location=arguments.get("location"),
             venue=arguments.get("venue"),
+            related_people=arguments.get("related_people", []),
+            related_organizations=arguments.get("related_organizations", []),
             related_links=arguments.get("related_links", []),
         )
     
@@ -148,6 +152,9 @@ async def analyze_document_stream(
         base_url=serviceConfig.base_url,
     )
     
+    # Check if polish content is enabled
+    enable_polish_content = request.enable_polish_content
+    
     # Build system prompt
     system_prompt = build_system_prompt(
         total_lines=state.total_lines,
@@ -155,6 +162,7 @@ async def analyze_document_stream(
         has_glossary=len(state.glossary_entries) > 0,
         categories=state.categories,
         max_keywords=state.max_keywords,
+        enable_polish_content=enable_polish_content,
     )
     
     # Initialize messages
@@ -164,7 +172,7 @@ async def analyze_document_stream(
     ]
     
     # Get tool definitions
-    tools = get_tool_definitions()
+    tools = get_tool_definitions(enable_polish_content)
     
     # Analysis loop
     iteration = 0

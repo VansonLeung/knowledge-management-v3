@@ -54,6 +54,13 @@ _LLM_CONFIG_SECTION = """
                         <label>Max Keywords</label>
                         <input type="number" id="maxKeywords" value="10" min="1" max="50">
                     </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="enablePolishContent" checked style="width: auto; margin: 0;">
+                        <label for="enablePolishContent" style="margin: 0; cursor: pointer;">Enable Polish Content Tool</label>
+                    </div>
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 0.25rem;">
+                        When enabled, the LLM can clean and polish messy text. Disable for faster analysis without content cleaning.
+                    </p>
                 </div>
             </div>
 """

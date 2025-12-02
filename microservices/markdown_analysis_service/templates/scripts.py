@@ -57,6 +57,7 @@ const elements = {
     apiKey: document.getElementById('apiKey'),
     baseUrl: document.getElementById('baseUrl'),
     maxKeywords: document.getElementById('maxKeywords'),
+    enablePolishContent: document.getElementById('enablePolishContent'),
     metadata: document.getElementById('metadata'),
     glossary: document.getElementById('glossary'),
     categories: document.getElementById('categories'),
@@ -148,6 +149,9 @@ function buildRequest() {
     // Add max keywords
     const maxKeywords = parseInt(elements.maxKeywords.value);
     if (maxKeywords) request.max_keywords = maxKeywords;
+    
+    // Add enable polish content flag
+    request.enable_polish_content = elements.enablePolishContent.checked;
     
     // Parse JSON fields
     const metadata = parseJsonSafe(elements.metadata.value, 'metadata');
@@ -350,30 +354,23 @@ function renderContent(data) {
 function renderSections(data) {
     let html = '';
     
-    if (data.extracted_sections?.length) {
-        html += '<h3>Extracted Sections</h3>';
-        data.extracted_sections.forEach(sec => {
-            const preview = sec.text.length > 500 ? sec.text.substring(0, 500) + '...' : sec.text;
+    if (data.polished_sections?.length) {
+        html += `<h3>Polished Sections (${data.polished_sections.length})</h3>`;
+        html += '<div style="margin-bottom: 1rem; padding: 0.5rem; background: #e8f5e9; border-radius: 4px;">';
+        html += `<strong>Total polished content:</strong> ${data.content?.length || 0} characters`;
+        html += '</div>';
+        
+        data.polished_sections.forEach((sec, idx) => {
+            const label = sec.section_label ? ` - ${escapeHtml(sec.section_label)}` : '';
             html += `<div class="section-card">
-                <strong>${escapeHtml(sec.name)}</strong> (lines ${sec.start_line}-${sec.end_line})
-                <pre style="margin-top: 0.5rem; font-size: 0.75rem;">${escapeHtml(preview)}</pre>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>Section #${sec.section_number || idx + 1}${label}</strong>
+                    <span style="font-size: 0.75rem; color: #666;">Lines ${sec.start_line}-${sec.end_line} (${sec.polished_char_count} chars)</span>
+                </div>
             </div>`;
         });
-    }
-    
-    if (data.removed_sections?.length) {
-        html += '<h3 style="margin-top: 1rem;">Removed Sections</h3>';
-        data.removed_sections.forEach(sec => {
-            const preview = sec.content.length > 200 ? sec.content.substring(0, 200) + '...' : sec.content;
-            html += `<div class="removed-card">
-                <strong>Lines ${sec.start_line}-${sec.end_line}</strong> (${escapeHtml(sec.reason)})
-                <pre style="margin-top: 0.5rem; font-size: 0.75rem;">${escapeHtml(preview)}</pre>
-            </div>`;
-        });
-    }
-    
-    if (!data.extracted_sections?.length && !data.removed_sections?.length) {
-        html += '<p style="color: #666;">No sections extracted or removed</p>';
+    } else {
+        html += '<p style="color: #666;">No polished sections yet</p>';
     }
     
     return html;

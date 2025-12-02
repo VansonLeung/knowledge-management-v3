@@ -20,8 +20,8 @@ from models import (
 class DocumentState:
     """Manages document content with line-level operations.
     
-    Tracks which lines are classified as content and provides methods
-    for reading and classifying sections.
+    Tracks polished content sections added by the LLM and provides methods
+    for reading text and accumulating polished output.
     """
     
     def __init__(self, text: str) -> None:
@@ -33,8 +33,23 @@ class DocumentState:
         self._original_text = text
         self._lines = text.split("\n")
         self._characters = len(text)
-        # Track which lines are classified as content (False = not classified yet)
-        self._content_mask = [False] * len(self._lines)
+        # Store polished content sections in order
+        self._polished_sections: List[Dict[str, Any]] = []
+    
+    @property
+    def total_lines(self) -> int:
+        """Total number of lines in the document."""
+        return len(self._lines)
+    
+    @property
+    def total_characters(self) -> int:
+        """Total number of characters in the document."""
+        return self._characters
+    
+    @property
+    def polished_sections(self) -> List[Dict[str, Any]]:
+        """List of polished content sections."""
+        return self._polished_sections
     
     @property
     def total_lines(self) -> int:
@@ -60,10 +75,7 @@ class DocumentState:
             context: Number of context lines before and after.
             
         Returns:
-            Formatted string with line numbers and status prefixes:
-            - "  " for unclassified lines
-            - "> " for lines in the requested range
-            - "✓ " for lines already classified as content
+            Formatted string with line numbers and content.
         """
         total_lines = len(self._lines)
         
@@ -96,9 +108,10 @@ class DocumentState:
         if end > total_lines:
             boundary_notes.append(f"(requested up to line {end}, but document only has {total_lines} lines)")
         
-        # Add classification status
-        total_classified = sum(self._content_mask)
-        boundary_notes.append(f"[Content classified: {total_classified}/{total_lines} lines]")
+        # Add polished sections count
+        total_polished = len(self._polished_sections)
+        total_chars_polished = sum(len(s["polished_text"]) for s in self._polished_sections)
+        boundary_notes.append(f"[Polished sections: {total_polished}, Total chars: {total_chars_polished}]")
         
         if boundary_notes:
             output = "\n".join(boundary_notes) + "\n\n" + output
@@ -131,55 +144,59 @@ class DocumentState:
         return truncated, was_truncated
     
     def get_cleaned_text(self) -> str:
-        """Get only the lines classified as content.
+        """Get the concatenated polished content.
         
         Returns:
-            The document text with only classified content lines.
+            All polished sections concatenated with double newlines.
         """
-        return "\n".join(
-            line
-            for i, line in enumerate(self._lines)
-            if self._content_mask[i]
-        )
+        if not self._polished_sections:
+            return ""
+        return "\n\n".join(s["polished_text"] for s in self._polished_sections)
     
-    def classify_lines(self, start: int, end: int) -> dict:
-        """Classify a range of lines as content.
+    def add_polished_section(
+        self,
+        polished_text: str,
+        start: Optional[int],
+        end: Optional[int],
+        section_label: Optional[str] = None,
+    ) -> dict:
+        """Add a polished section of content.
         
         Args:
             start: Starting line number (1-indexed).
             end: Ending line number (1-indexed, inclusive).
+            polished_text: The polished/cleaned version of the text.
+            section_label: Optional label for this section.
             
         Returns:
-            Dict with classification summary.
+            Dict with section summary.
         """
-        start_idx = max(0, start - 1)
-        end_idx = min(len(self._lines), end)
-        
-        # Count how many lines are newly classified
-        newly_classified = 0
-        already_classified = 0
-        
-        for i in range(start_idx, end_idx):
-            if self._content_mask[i]:
-                already_classified += 1
-            else:
-                self._content_mask[i] = True
-                newly_classified += 1
-        
-        # Get preview of classified content
-        classified_content = "\n".join(self._lines[start_idx:end_idx])
-        
-        # Count total classified lines
-        total_classified = sum(self._content_mask)
-        
-        return {
+        section = {
             "start_line": start,
             "end_line": end,
-            "newly_classified": newly_classified,
-            "already_classified": already_classified,
-            "total_classified_lines": total_classified,
-            "total_lines": len(self._lines),
-            "content_preview": classified_content[:300] + ("..." if len(classified_content) > 300 else ""),
+            "polished_text": polished_text,
+            "section_label": section_label,
+            "original_char_count": sum(
+                len(self._lines[i])
+                for i in range(max(0, start - 1), min(len(self._lines), end))
+            ),
+            "polished_char_count": len(polished_text),
+        }
+        
+        self._polished_sections.append(section)
+        
+        # Calculate totals
+        total_polished_chars = sum(len(s["polished_text"]) for s in self._polished_sections)
+        
+        return {
+            "section_number": len(self._polished_sections),
+            "start_line": start,
+            "end_line": end,
+            "section_label": section_label,
+            "polished_char_count": len(polished_text),
+            "total_sections": len(self._polished_sections),
+            "total_polished_chars": total_polished_chars,
+            "polished_preview": polished_text[:200] + ("..." if len(polished_text) > 200 else ""),
         }
 
 
@@ -277,9 +294,6 @@ class AnalysisState:
         self._categories = categories
         self._max_keywords = max_keywords
         
-        # Content classification tracking
-        self._classifications: List[Dict[str, Any]] = []
-        
         # Final results
         self._language: Optional[str] = None
         self._title: Optional[str] = None
@@ -323,8 +337,8 @@ class AnalysisState:
     
     @property
     def classifications(self) -> List[Dict[str, Any]]:
-        """Content classification history."""
-        return self._classifications
+        """Polished content sections (for backward compatibility)."""
+        return self._document.polished_sections
     
     @property
     def glossary_matches(self) -> List[GlossaryMatch]:
@@ -406,6 +420,16 @@ class AnalysisState:
         return getattr(self, "_venue", None)
     
     @property
+    def related_people(self) -> Optional[List[str]]:
+        """Related people (if applicable)."""
+        return getattr(self, "_related_people", None)
+    
+    @property
+    def related_organizations(self) -> Optional[List[str]]:
+        """Related organizations (if applicable)."""
+        return getattr(self, "_related_organizations", None)
+    
+    @property
     def related_links(self) -> Optional[List[str]]:
         """Related links (if applicable)."""
         return getattr(self, "_related_links", None)
@@ -434,45 +458,45 @@ class AnalysisState:
             start, end, context,
         )
     
-    def extract_lines_as_main_article(
+    def polish_and_add_content(
         self,
-        start: int,
-        end: int,
-        label: str = "",
+        polished_text: str,
+        start: Optional[int] = None,
+        end: Optional[int] = None,
+        section_label: Optional[str] = None,
     ) -> str:
-        """Extract a range of lines as meaningful content.
+        """Add a polished section of content to the final output.
         
         Args:
-            start: Starting line number (1-indexed).
-            end: Ending line number (1-indexed, inclusive).
-            label: Optional label for this content section.
+            start: Starting line number of original content (1-indexed).
+            end: Ending line number of original content (1-indexed, inclusive).
+            polished_text: The cleaned and polished version of the text.
+            section_label: Optional label for this content section.
             
         Returns:
-            Confirmation message with classification summary.
+            Confirmation message with section summary.
         """
-        result = self._document.classify_lines(start, end)
-        
-        # Track the classification
-        self._classifications.append({
-            "start_line": start,
-            "end_line": end,
-            "line_count": result["newly_classified"] + result["already_classified"],
-        })
+        result = self._document.add_polished_section(
+            start=start,
+            end=end,
+            polished_text=polished_text,
+            section_label=section_label,
+        )
         
         # Format result message
-        label_note = f"Label: {label}\n" if label else ""
+        label_note = f"Section label: {result['section_label']}\n" if result['section_label'] else ""
         
         return (
-            f"=== LINES CLASSIFIED AS CONTENT ===\n"
+            f"=== POLISHED CONTENT ADDED ===\n"
+            f"Section #{result['section_number']} (from lines {start}-{end})\n"
             f"{label_note}"
-            f"Lines {start}-{end} marked as content.\n"
             f"\n"
-            f"CLASSIFICATION SUMMARY:\n"
-            f"  - Newly classified: {result['newly_classified']} lines\n"
-            f"  - Already classified: {result['already_classified']} lines\n"
-            f"  - Total classified so far: {result['total_classified_lines']} / {result['total_lines']} lines\n"
+            f"SECTION SUMMARY:\n"
+            f"  - Polished text: {result['polished_char_count']} characters\n"
+            f"  - Total sections so far: {result['total_sections']}\n"
+            f"  - Total polished content: {result['total_polished_chars']} characters\n"
             f"\n"
-            f"Content preview: {result['content_preview']}"
+            f"Content preview: {result['polished_preview']}"
         )
     
     def lookup_glossary(self, terms: List[str]) -> str:
@@ -501,6 +525,8 @@ class AnalysisState:
         date_duration: Optional[str] = None,
         location: Optional[str] = None,
         venue: Optional[str] = None,
+        related_people: Optional[List[str]] = None,
+        related_organizations: Optional[List[str]] = None,
         related_links: Optional[List[str]] = None,
     ) -> str:
         """Complete the analysis with final results.
@@ -519,6 +545,8 @@ class AnalysisState:
             date_duration: Event duration.
             location: Event location.
             venue: Event venue.
+            related_people: Related people mentioned in the main article.
+            related_organizations: Related organizations mentioned in the main article.
             related_links: Related links.
         Returns:
             Confirmation message.
@@ -536,6 +564,8 @@ class AnalysisState:
         self._date_duration = date_duration
         self._location = location
         self._venue = venue
+        self._related_people = related_people
+        self._related_organizations = related_organizations
         self._related_links = related_links
         self._is_finished = True
         
@@ -554,6 +584,18 @@ class AnalysisState:
         Returns:
             Dictionary suitable for JSON serialization.
         """
+        # Format polished sections for response
+        polished_sections = [
+            {
+                "section_number": i + 1,
+                "start_line": s["start_line"],
+                "end_line": s["end_line"],
+                "section_label": s.get("section_label"),
+                "polished_char_count": s["polished_char_count"],
+            }
+            for i, s in enumerate(self.classifications)
+        ]
+        
         return {
             "language": self.language,
             "title": self.title,
@@ -568,9 +610,11 @@ class AnalysisState:
             "date_duration": self.date_duration,
             "location": self.location,
             "venue": self.venue,
+            "related_people": self.related_people,
+            "related_organizations": self.related_organizations,
             "related_links": self.related_links,
             "content": self.cleaned_content,
-            "classifications": self._classifications,
+            "polished_sections": polished_sections,
             "glossary_matches": [m.model_dump() for m in self.glossary_matches],
             "iterations_used": iterations_used,
         }

@@ -45,6 +45,7 @@ def build_system_prompt(
     has_glossary: bool,
     categories: Optional[List[CategoryItem]] = None,
     max_keywords: int = 10,
+    enable_polish_content: bool = True,
 ) -> str:
     """Build the system prompt for document analysis.
     
@@ -54,6 +55,7 @@ def build_system_prompt(
         has_glossary: Whether a glossary is available.
         categories: Optional category tree for classification.
         max_keywords: Maximum number of keywords to generate.
+        enable_polish_content: Whether polish_and_add_content tool is available.
         
     Returns:
         Complete system prompt string.
@@ -66,18 +68,28 @@ def build_system_prompt(
         "",
         "## Your Tasks",
         "",
-        "1. **Read** the document section by section using `read_text`",
-        "2. **Extract** main article lines using `extract_lines_as_main_article`",
+        "1. **Read** the document section by section using `read_text` (30-100 lines at a time)",
     ]
+    
+    # Add polish task if enabled
+    if enable_polish_content:
+        prompt_parts.extend([
+            "2. **Polish and add** meaningful content using `polish_and_add_content`",
+            "   - For each section of main article content you find, provide a cleaned version",
+            "   - Skip boilerplate, navigation, ads, and irrelevant content",
+            "   - Fix formatting issues, HTML artifacts, and messy text",
+            "   - DO NOT use this tool UNTIL YOU HAVE READ THE WHOLE DOCUMENT.",
+        ])
+        next_step = 3
+    else:
+        next_step = 2
     
     # Glossary instruction
     if has_glossary:
         prompt_parts.append(
-            "3. **Look up** technical terms in the glossary using `lookup_glossary`"
+            f"{next_step}. **Look up** technical terms in the glossary using `lookup_glossary`"
         )
-        next_step = 4
-    else:
-        next_step = 3
+        next_step += 1
     
     prompt_parts.append(
         f"{next_step}. **Finish** with language, title, keywords, and category using `finish_analysis`"
@@ -88,20 +100,38 @@ def build_system_prompt(
         "",
         "## Guidelines",
         "",
-        "### Content Removal",
-        "Remove these types of content:",
-        "- Table of contents and indexes",
-        "- Page numbers and headers/footers",
-        "- Boilerplate text and legal disclaimers",
-        "- Reference lists and bibliographies",
-        "- Redundant whitespace sections",
-        "",
-        "### Section Extraction",
-        "Extract these valuable sections:",
-        "- Abstracts and executive summaries",
-        "- Key conclusions and findings",
-        "- Important definitions and concepts",
-        "",
+    ])
+    
+    if enable_polish_content:
+        prompt_parts.extend([
+            "### Content to SKIP (do not include in polished output)",
+            "- Navigation menus and sidebars",
+            "- Advertisements and promotional content",
+            "- Cookie notices and legal disclaimers",
+            "- Social media buttons and share links",
+            "- Unrelated links and footer navigation",
+            "- Page numbers and headers/footers",
+            "",
+            "### Content to POLISH and ADD (if some not found, omit)",
+            "- Main article text and paragraphs",
+            "- Article title and subtitles",
+            "- Author information and publication date",
+            "- Key conclusions and findings",
+            "- Important definitions and concepts",
+            "",
+            "### Polishing Guidelines",
+            "When using `polish_and_add_content`:",
+            "- Remove HTML artifacts (e.g., &nbsp;, broken tags)",
+            "- Fix obvious typos and formatting issues",
+            "- Combine fragmented sentences if needed",
+            "- Preserve markdown formatting (headers, lists, emphasis)",
+            "- Keep all important information from the original",
+            "- Do NOT add new information or significantly rewrite",
+            "- Do NOT use the tool to add repetitive information across sections",
+            "",
+        ])
+    
+    prompt_parts.extend([
         "### Keywords",
         f"- Generate up to {max_keywords} meaningful keywords",
         "- Focus on main topics, concepts, and themes",

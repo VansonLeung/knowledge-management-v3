@@ -102,6 +102,10 @@ class StudyTextRequest(BaseModel):
         le=50,
         description="Maximum number of keywords to generate"
     )
+    enable_polish_content: bool = Field(
+        True,
+        description="Enable the polish_and_add_content tool for cleaning messy text"
+    )
     
     # LLM configuration overrides
     model: Optional[str] = Field(
